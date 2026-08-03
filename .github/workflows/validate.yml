@@ -1,0 +1,29 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md files
+        run: python3 scripts/validate.py skills
+
+      - name: Shellcheck the installer
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning install.sh
+
+      - name: Installer smoke test
+        run: |
+          mkdir -p /tmp/target && cd /tmp/target
+          "$GITHUB_WORKSPACE/install.sh" --agents all --skills all --yes
+          test -f .agents/skills/upstream-issue-scout/SKILL.md
+          test -L .claude/skills/upstream-issue-scout
+          test -L .github/skills/upstream-issue-scout
+          test -L .cursor/skills/upstream-issue-scout
