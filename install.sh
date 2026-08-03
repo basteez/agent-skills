@@ -208,11 +208,14 @@ elif have_tty; then
   say ""
   say "${c_bold}Which agents do you use here?${c_off}"
   i=1
-  agent_rows | while IFS='|' read -r id label pdir udir note; do
+  # Process substitution, not a pipe: a pipe would run this in a subshell and
+  # discard every increment of $i, numbering all rows "1".
+  while IFS='|' read -r id label pdir udir note; do
+    # shellcheck disable=SC2088  # display string only, never used as a path
     if [ "$SCOPE" = "user" ]; then shown="~/$udir"; else shown="$pdir"; fi
     printf '  %d) %-28s %s\n' "$i" "$label" "$c_dim$shown$c_off"
     i=$((i+1))
-  done
+  done < <(agent_rows)
   say "     ${c_dim}$(agent_field agents 5)${c_off}"
   say ""
   raw="$(ask "Select one or more [1 2 ...], 'a' for all, Enter for 1: ")"
@@ -261,7 +264,6 @@ dir_for_agent() { # $1 = agent id -> path relative to DEST_ROOT
 
 # The shared directory is where real files land; everything else links to it.
 CANON_REL="$(dir_for_agent agents)"
-CANON_ABS="$DEST_ROOT/$CANON_REL"
 
 TARGET_DIRS=()
 for a in "${CHOSEN_AGENTS[@]}"; do
