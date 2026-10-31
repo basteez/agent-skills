@@ -92,37 +92,57 @@ list_skills() {
     | sort
 }
 
-# First non-empty description line from the frontmatter, trimmed for display.
-skill_summary() {
-  local f="$SKILLS_DIR/$1/SKILL.md"
-  [ -f "$f" ] || { echo ""; return; }
-  awk '
-    NR==1 && $0 ~ /^---[[:space:]]*$/ { infm=1; next }
-    infm && $0 ~ /^---[[:space:]]*$/  { exit }
-    infm && $0 ~ /^description:/ {
-      sub(/^description:[[:space:]]*/, "")
-      sub(/^["'"'"'>|-]+[[:space:]]*/, "")
-      print; exit
-    }
-  ' "$f" | cut -c1-88
-}
-
-# metadata.scope from the frontmatter: 'user' marks a skill that only makes
-# sense installed in the home directory (personal, not tied to a project).
-skill_scope() {
+# A single-line key under metadata: in the frontmatter, quotes stripped.
+skill_meta() { # $1 = skill, $2 = key
   local f="$SKILLS_DIR/$1/SKILL.md"
   [ -f "$f" ] || return 0
-  awk '
+  awk -v key="$2" '
     NR==1 && $0 ~ /^---[[:space:]]*$/ { infm=1; next }
     infm && $0 ~ /^---[[:space:]]*$/  { exit }
-    infm && $0 ~ /^[^[:space:]]/      { inmeta = ($0 ~ /^metadata:/) ; next }
-    infm && inmeta && $0 ~ /^[[:space:]]+scope:/ {
-      sub(/^[[:space:]]+scope:[[:space:]]*/, ""); gsub(/["'"'"']/, ""); print; exit
+    infm && $0 ~ /^[^[:space:]]/      { inmeta = ($0 ~ /^metadata:/); next }
+    infm && inmeta && $0 ~ "^[[:space:]]+" key ":" {
+      sub("^[[:space:]]+" key ":[[:space:]]*", "")
+      if ($0 ~ /^".*"$/ || $0 ~ /^\047.*\047$/) $0 = substr($0, 2, length($0) - 2)
+      print; exit
     }
   ' "$f"
 }
 
-scope_tag() { [ "$(skill_scope "$1")" = "user" ] && printf '[user scope] '; return 0; }
+# metadata.summary is a one-line, human-facing description. The spec's
+# description field is written to trigger agents, so it is only a fallback.
+skill_summary() {
+  local s; s="$(skill_meta "$1" summary)"
+  if [ -z "$s" ]; then
+    s="$(awk '
+      NR==1 && $0 ~ /^---[[:space:]]*$/ { infm=1; next }
+      infm && $0 ~ /^---[[:space:]]*$/  { exit }
+      infm && $0 ~ /^description:/ {
+        sub(/^description:[[:space:]]*/, "")
+        sub(/^["'"'"'>|-]+[[:space:]]*/, "")
+        print; exit
+      }
+    ' "$SKILLS_DIR/$1/SKILL.md" | awk '{
+        if (length($0) > 100) { $0 = substr($0, 1, 100); sub(/[[:space:]]+[^[:space:]]*$/, ""); $0 = $0 "..." }
+        print
+      }')"
+  fi
+  printf '%s' "$s"
+}
+
+# metadata.scope 'user' marks a skill that only makes sense installed in the
+# home directory (personal, not tied to a project).
+skill_scope() { skill_meta "$1" scope; }
+
+scope_tag() { [ "$(skill_scope "$1")" = "user" ] && printf ' [user scope]'; return 0; }
+
+# Print text word-wrapped to the terminal, every line prefixed by $1.
+wrap() { # $1 = indent, $2 = text
+  local width; width="$(tput cols 2>/dev/null || echo 80)"
+  [ "$width" -gt 100 ] && width=100
+  width=$((width - ${#1}))
+  [ "$width" -lt 30 ] && width=30
+  printf '%s\n' "$2" | fold -s -w "$width" | sed -e 's/[[:space:]]*$//' -e "s/^/$1/"
+}
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -146,7 +166,10 @@ case "$SCOPE" in project|user) ;; *) die "--scope must be 'project' or 'user'" ;
 
 if [ "$MODE" = "list" ]; then
   say "${c_bold}Skills${c_off}"
-  while IFS= read -r s; do printf '  %-28s %s%s\n' "$s" "$(scope_tag "$s")" "$(skill_summary "$s")"; done < <(list_skills)
+  while IFS= read -r s; do
+    printf '  %s%s%s%s\n' "$c_bold" "$s" "$c_off" "$c_ylw$(scope_tag "$s")$c_off"
+    wrap "      " "$(skill_summary "$s")"
+  done < <(list_skills)
   say ""
   say "${c_bold}Agents${c_off}"
   agent_rows | while IFS='|' read -r id label pdir udir note; do
@@ -260,7 +283,8 @@ elif have_tty; then
   say "${c_bold}Which skills?${c_off}"
   i=1
   for s in "${SKILL_IDS[@]}"; do
-    printf '  %d) %-28s %s\n' "$i" "$s" "$c_dim$(scope_tag "$s")$(skill_summary "$s")$c_off"
+    printf '  %d) %s%s\n' "$i" "$s" "$c_ylw$(scope_tag "$s")$c_off"
+    printf '%s' "$c_dim"; wrap "     " "$(skill_summary "$s")"; printf '%s' "$c_off"
     i=$((i+1))
   done
   say ""
@@ -315,8 +339,12 @@ say "${c_bold}Plan${c_off}"
 say "  scope   : $SCOPE"
 say "  root    : $DEST_ROOT"
 say "  method  : $([ "$MODE" = copy ] && echo 'copy files' || echo "real files in $CANON_REL, symlinks elsewhere")"
-say "  skills  : ${CHOSEN_SKILLS[*]}"
 say "  targets : ${TARGET_DIRS[*]}"
+say "  skills  :"
+for s in "${CHOSEN_SKILLS[@]}"; do
+  say "    $s"
+  printf '%s' "$c_dim"; wrap "      " "$(skill_summary "$s")"; printf '%s' "$c_off"
+done
 say ""
 
 if [ "$ASSUME_YES" = 0 ] && [ "$DRY_RUN" = 0 ] && have_tty; then
