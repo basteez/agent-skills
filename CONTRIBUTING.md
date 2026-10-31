@@ -23,6 +23,7 @@ name: my-skill
 description: What it does, and when to use it.
 license: MIT
 metadata:
+  summary: "One line for humans, shown by the installer."
   version: "1.0"
 ---
 ```
@@ -35,6 +36,12 @@ Constraints from the specification:
 - **compatibility** — optional, max 500 characters, for environment requirements.
 - No `<` or `>` anywhere in the frontmatter. Angle brackets can inject unintended instructions
   into the system prompt.
+
+House convention: every skill sets a `summary` under `metadata:`, one line for humans, shown by
+`install.sh` in its menu, in `--list` and in the install plan. It is not a copy of the
+description: the description is written for an agent deciding whether to load the skill and is
+full of trigger phrasing, while the summary tells a person in one sentence what they get. Quote
+it, because a colon inside an unquoted value breaks the YAML. Keep it under 160 characters.
 
 House convention: a skill that is personal rather than tied to a project (a thinking tool, a
 working-style habit) sets `scope: user` under `metadata:`. `install.sh` then refuses to place it

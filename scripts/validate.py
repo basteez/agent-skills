@@ -19,6 +19,7 @@ NAME_MAX = 64
 DESC_MAX = 1024
 COMPAT_MAX = 500
 BODY_SOFT_LINES = 500
+SUMMARY_MAX = 160
 RESERVED_NAMES = {"claude", "skill", "skills", "agent", "agents"}
 KNOWN_KEYS = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
 
@@ -126,6 +127,17 @@ def check_skill(d: Path) -> None:
     compat = fields.get("compatibility")
     if compat and len(compat) > COMPAT_MAX:
         err(name, f"compatibility is {len(compat)} chars, max is {COMPAT_MAX}")
+
+    # --- house metadata read by install.sh ---
+    summary = re.search(r"^metadata:\s*\n(?:[ \t]+.*\n)*?[ \t]+summary:[ \t]*(.*)$", fm + "\n", re.M)
+    if not summary:
+        warn(name, "no metadata.summary; the installer will fall back to a truncated description")
+    else:
+        s = summary.group(1).strip().strip("'\"")
+        if not s:
+            err(name, "metadata.summary must be a single non-empty line")
+        elif len(s) > SUMMARY_MAX:
+            warn(name, f"metadata.summary is {len(s)} chars; keep it under {SUMMARY_MAX}")
 
     # --- body ---
     if not [ln for ln in body if ln.strip()]:

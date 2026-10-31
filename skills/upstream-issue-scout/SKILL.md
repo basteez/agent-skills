@@ -1,6 +1,8 @@
 ---
 name: upstream-issue-scout
 description: Scout the upstream repository of a fork for open issues that are genuinely available to pick up (unassigned, unclaimed, no linked PR, still relevant) and rank them by value-to-maintainers times tractability-for-one-contributor. Use this whenever the user is inside a fork and asks what they could contribute upstream, wants to find an issue worth working on, asks to check or triage upstream issues, mentions opening a PR to the project they forked, or wants candidates vetted for feasibility before any code gets written. Works with any GitHub project regardless of its label taxonomy or contribution process.
+metadata:
+  summary: "From inside a fork, finds upstream issues that are genuinely free to pick up and ranks them by value to maintainers and effort for one contributor."
 ---
 
 # Upstream Issue Scout

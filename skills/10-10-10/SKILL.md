@@ -2,6 +2,7 @@
 name: 10-10-10
 description: Facilitate Suzy Welch's 10-10-10 decision technique, guiding the user to weigh each option of a personal decision as it will look in 10 minutes, 10 months and 10 years, checked against their own values. Use this whenever the user mentions 10-10-10 or 10/10/10, or describes a dilemma, a hard choice, a decision they keep postponing, feeling torn between options, or asks for help deciding about career, relationships, family, money, moving, or any personal crossroads. Also use it when the user says they cannot decide, fear regretting a choice, or wants to think a decision through. Works in any language.
 metadata:
+  summary: "Guides a personal decision through Suzy Welch's 10-10-10 technique, weighing each option at 10 minutes, 10 months and 10 years against your values."
   scope: user
 ---
 
