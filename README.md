@@ -13,6 +13,7 @@ a single vendor.
 | Skill | What it does |
 |---|---|
 | [`upstream-issue-scout`](skills/upstream-issue-scout/) | From inside a fork, finds upstream issues that are genuinely free to pick up and ranks them by value to maintainers times tractability for one contributor. |
+| [`10-10-10`](skills/10-10-10/) | Facilitates Suzy Welch's 10-10-10 technique for personal decisions: each option weighed at 10 minutes, 10 months and 10 years against your own values. User scope only. |
 
 ## Install into a project
 
@@ -55,6 +56,10 @@ the skills and anyone on the project is on Windows.
 
 `--scope user` installs into your home directory instead, making the skills available in every
 project without touching any repo.
+
+Some skills are personal rather than project tooling and declare `scope: user` under
+`metadata:` in their frontmatter. The installer skips them with a warning in project scope, so
+they can't end up committed to a repo; install them with `--scope user`.
 
 ### Where each agent looks
 

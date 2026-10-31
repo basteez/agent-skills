@@ -107,6 +107,23 @@ skill_summary() {
   ' "$f" | cut -c1-88
 }
 
+# metadata.scope from the frontmatter: 'user' marks a skill that only makes
+# sense installed in the home directory (personal, not tied to a project).
+skill_scope() {
+  local f="$SKILLS_DIR/$1/SKILL.md"
+  [ -f "$f" ] || return 0
+  awk '
+    NR==1 && $0 ~ /^---[[:space:]]*$/ { infm=1; next }
+    infm && $0 ~ /^---[[:space:]]*$/  { exit }
+    infm && $0 ~ /^[^[:space:]]/      { inmeta = ($0 ~ /^metadata:/) ; next }
+    infm && inmeta && $0 ~ /^[[:space:]]+scope:/ {
+      sub(/^[[:space:]]+scope:[[:space:]]*/, ""); gsub(/["'"'"']/, ""); print; exit
+    }
+  ' "$f"
+}
+
+scope_tag() { [ "$(skill_scope "$1")" = "user" ] && printf '[user scope] '; return 0; }
+
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
@@ -129,7 +146,7 @@ case "$SCOPE" in project|user) ;; *) die "--scope must be 'project' or 'user'" ;
 
 if [ "$MODE" = "list" ]; then
   say "${c_bold}Skills${c_off}"
-  while IFS= read -r s; do printf '  %-28s %s\n' "$s" "$(skill_summary "$s")"; done < <(list_skills)
+  while IFS= read -r s; do printf '  %-28s %s%s\n' "$s" "$(scope_tag "$s")" "$(skill_summary "$s")"; done < <(list_skills)
   say ""
   say "${c_bold}Agents${c_off}"
   agent_rows | while IFS='|' read -r id label pdir udir note; do
@@ -243,7 +260,7 @@ elif have_tty; then
   say "${c_bold}Which skills?${c_off}"
   i=1
   for s in "${SKILL_IDS[@]}"; do
-    printf '  %d) %-28s %s\n' "$i" "$s" "$c_dim$(skill_summary "$s")$c_off"
+    printf '  %d) %-28s %s\n' "$i" "$s" "$c_dim$(scope_tag "$s")$(skill_summary "$s")$c_off"
     i=$((i+1))
   done
   say ""
@@ -254,6 +271,20 @@ else
   CHOSEN_SKILLS=("${SKILL_IDS[@]}")
 fi
 [ "${#CHOSEN_SKILLS[@]}" -gt 0 ] || die "no skill selected"
+
+# Personal skills don't belong in a project tree, where they could be committed.
+if [ "$SCOPE" = "project" ]; then
+  kept=()
+  for s in "${CHOSEN_SKILLS[@]}"; do
+    if [ "$(skill_scope "$s")" = "user" ]; then
+      warn "skipping $s: user-scope only. Install it with: install.sh --scope user --skills $s"
+    else
+      kept+=("$s")
+    fi
+  done
+  [ "${#kept[@]}" -gt 0 ] || die "nothing left to install in project scope (try --scope user)"
+  CHOSEN_SKILLS=("${kept[@]}")
+fi
 
 # ---------------------------------------------------------------------------
 # Plan

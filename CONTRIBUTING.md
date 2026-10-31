@@ -36,6 +36,10 @@ Constraints from the specification:
 - No `<` or `>` anywhere in the frontmatter. Angle brackets can inject unintended instructions
   into the system prompt.
 
+House convention: a skill that is personal rather than tied to a project (a thinking tool, a
+working-style habit) sets `scope: user` under `metadata:`. `install.sh` then refuses to place it
+in a project tree and points the user at `--scope user`.
+
 ## The description is the whole ballgame
 
 At startup an agent loads only the name and description of every installed skill. The body is
