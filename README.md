@@ -16,18 +16,27 @@ a single vendor.
 | [`pr-review-watch`](skills/pr-review-watch/) | Polls GitHub for PRs that request your review (named repos, or the current project's) and reviews each in a throwaway worktree via a subagent, using BMAD's code review, another installed review skill, or a plain review, then approves or requests changes. |
 | [`10-10-10`](skills/10-10-10/) | Facilitates Suzy Welch's 10-10-10 technique for personal decisions: each option weighed at 10 minutes, 10 months and 10 years against your own values. User scope only. |
 
-## Install into a project
+## Install
 
-Clone this repo once, then run the installer from the root of whatever project you want to equip:
+Clone this repo once. Every install goes through `install.sh`, either into a project or into your
+home directory.
 
 ```bash
 git clone git@github.com:basteez/agent-skills.git ~/src/agent-skills
+```
 
+### Into a project
+
+Run the installer from anywhere inside the project you want to equip. It installs at the git
+root, or in the current directory outside a repository:
+
+```bash
 cd ~/work/some-project
 ~/src/agent-skills/install.sh
 ```
 
-It asks which agents you use and which skills you want, then writes them into the right places:
+It asks which agents you use and which skills you want, shows the plan, and asks for confirmation
+before writing anything:
 
 ```
 Which agents do you use here?
@@ -39,24 +48,73 @@ Which agents do you use here?
 Select one or more [1 2 ...], 'a' for all, Enter for 1:
 ```
 
-Non-interactive, for scripts and dotfiles:
+Both menus take numbers separated by spaces or commas (`1 2 4`, `1,3`), or `a` for everything.
+Enter alone picks the shared layout for agents and every skill for skills.
+
+### For your user, in every project
+
+`--scope user` installs into your home directory instead, so the skills are available in every
+project without touching any repo. It can run from any directory:
 
 ```bash
-~/src/agent-skills/install.sh --agents claude-code,copilot --skills all --yes
-~/src/agent-skills/install.sh --scope user --agents agents --skills all --yes
+~/src/agent-skills/install.sh --scope user
+```
+
+Skills meant only for personal use, such as `10-10-10`, can only be installed this way (see
+[How placement works](#how-placement-works)).
+
+### Options
+
+| Option | Effect |
+|---|---|
+| `--agents a,b,c` | Install for these agents and skip the menu. Ids: `agents` (shared layout), `claude-code`, `copilot`, `cursor`, or `all`. |
+| `--skills a,b,c` | Install these skills by directory name and skip the menu, or `all`. In project scope, user-only skills are skipped with a warning. |
+| `--scope project\|user` | `project` (default) writes into the target project; `user` writes into `$HOME`. |
+| `--dest PATH` | Target project root, instead of the git root or current directory. Ignored with `--scope user`. |
+| `--copy` | Write real files into every agent directory instead of symlinking to the shared one. |
+| `--list` | Print the available skills, with summaries and scope, and the agents, then exit. |
+| `-y`, `--yes` | Skip the confirmation prompt. |
+| `--dry-run` | Print the plan and every action it would take, write nothing. |
+| `-h`, `--help` | Show usage. |
+
+Without a terminal (piped, in CI), the installer can't ask, so it falls back to the shared layout
+and every skill unless `--agents` and `--skills` say otherwise.
+
+Running it again over an existing install replaces each selected skill with the current version
+from this repo, which is how you update after a `git pull`. Skills you didn't select are left
+alone.
+
+### Examples
+
+```bash
+# One skill for several agents in this project
+~/src/agent-skills/install.sh --agents claude-code,copilot,cursor --skills pr-review-watch
+
+# Everything, for every agent, in another project, no questions
+~/src/agent-skills/install.sh --dest ~/work/other-project --agents all --skills all --yes
+
+# Committed skills that must work on Windows checkouts too
+~/src/agent-skills/install.sh --agents agents,claude-code --skills all --copy
+
+# Personal install for every project, from a dotfiles script
+~/src/agent-skills/install.sh --scope user --agents all --skills all --yes
+
+# Only agents that read the shared layout (Codex, Gemini CLI, Goose, ...)
+~/src/agent-skills/install.sh --scope user --agents agents --skills pr-review-watch,10-10-10
+
+# Look before you write
 ~/src/agent-skills/install.sh --list
-~/src/agent-skills/install.sh --dry-run --agents all --skills all
+~/src/agent-skills/install.sh --dry-run --scope user --agents all --skills all
 ```
 
 ### How placement works
 
-Real files go into `.agents/skills/`, the layout several agents read directly. Every other
-selected agent gets a relative symlink pointing back at it, so all agents see one copy and there
-is nothing to keep in sync. Pass `--copy` for real files everywhere — worth doing if you commit
-the skills and anyone on the project is on Windows.
-
-`--scope user` installs into your home directory instead, making the skills available in every
-project without touching any repo.
+Real files go into `.agents/skills/` (`~/.agents/skills/` in user scope), the layout several
+agents read directly. It is always written in link mode, even if you didn't select the shared
+layout, because the other directories point at it. Every other selected agent gets a relative
+symlink pointing back at it, so all agents see one copy and there is nothing to keep in sync. If
+the filesystem refuses symlinks, the installer copies instead and says so. Pass `--copy` for real
+files everywhere — worth doing if you commit the skills and anyone on the project is on Windows.
 
 Some skills are personal rather than project tooling and declare `scope: user` under
 `metadata:` in their frontmatter. The installer skips them with a warning in project scope, so
