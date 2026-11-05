@@ -13,6 +13,7 @@ a single vendor.
 | Skill | What it does |
 |---|---|
 | [`upstream-issue-scout`](skills/upstream-issue-scout/) | From inside a fork, finds upstream issues that are genuinely free to pick up and ranks them by value to maintainers times tractability for one contributor. |
+| [`pr-review-watch`](skills/pr-review-watch/) | Polls GitHub for PRs that request your review (named repos, or the current project's) and reviews each in a throwaway worktree via a subagent, using BMAD's code review, another installed review skill, or a plain review, then approves or requests changes. |
 | [`10-10-10`](skills/10-10-10/) | Facilitates Suzy Welch's 10-10-10 technique for personal decisions: each option weighed at 10 minutes, 10 months and 10 years against your own values. User scope only. |
 
 ## Install into a project
