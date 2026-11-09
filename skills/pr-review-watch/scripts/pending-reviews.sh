@@ -13,16 +13,19 @@
 # Options:
 #   --interval N     Keep running, checking every N seconds (watch mode).
 #                    Without it the script checks once and exits.
-#   --state FILE     Where reported PRs are remembered.
-#                    Default: ${XDG_STATE_HOME:-~/.local/state}/pr-review-watch/seen
+#   --state FILE     Where reported PRs are remembered. In watch mode the default
+#                    is a temporary file deleted on exit, so every watch starts
+#                    clean. A one-shot check has no memory unless you pass this:
+#                    create one file per session and pass it to every check.
 #   --user-only      Only PRs requesting you personally, not one of your teams.
 #   --include-drafts Also report draft PRs (skipped by default).
-#   --forget KEY     Remove one key (owner/repo#N@sha) from the state file, so a
-#                    PR whose review failed is reported again, then exit.
+#   --forget KEY     Remove one key (owner/repo#N@sha) from the state file given
+#                    with --state, so a PR whose review failed is reported again,
+#                    then exit.
 set -uo pipefail
 
 interval=""
-state="${XDG_STATE_HOME:-$HOME/.local/state}/pr-review-watch/seen"
+state=""
 qualifier="review-requested"
 drafts="false"
 forget=""
@@ -41,9 +44,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-mkdir -p "$(dirname "$state")" && touch "$state"
-
 if [ -n "$forget" ]; then
+  [ -n "$state" ] || { echo "--forget needs --state" >&2; exit 2; }
   tmp="$(mktemp)"
   grep -vxF -- "$forget" "$state" > "$tmp" || true
   mv "$tmp" "$state"
@@ -52,6 +54,17 @@ fi
 
 [ "${#repos[@]}" -gt 0 ] || { echo "no repositories given" >&2; exit 2; }
 command -v gh >/dev/null || { echo "gh CLI not found" >&2; exit 2; }
+
+# State only has to live as long as the session: GitHub drops the review
+# request once a review is submitted, so a PR still pending at the next start
+# was never reviewed and must be reported again.
+if [ -z "$state" ]; then
+  state="$(mktemp "${TMPDIR:-/tmp}/pr-review-watch-seen.XXXXXX")"
+  trap 'rm -f "$state"' EXIT
+  trap 'exit 130' INT TERM
+else
+  mkdir -p "$(dirname "$state")" && touch "$state"
+fi
 
 check_once() {
   local query=("is:pr" "is:open" "$qualifier:@me" "archived:false")

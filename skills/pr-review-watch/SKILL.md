@@ -59,12 +59,23 @@ destination) and start. Do not wait for confirmation unless something above was 
 `scripts/pending-reviews.sh` does the GitHub query and the bookkeeping. It prints one JSON line per
 PR that requests the user's review and has not been reported before, and remembers each PR by
 repository, number and head commit. A PR still under review is not reported twice; a PR that is
-re-requested after new pushes is reported again, which is what the user wants.
+re-requested after new pushes is reported again, which is what the user wants. The first check runs
+immediately, so PRs already waiting when the watch starts are reported too.
+
+That memory lasts for one session only. GitHub removes the review request once a review is
+submitted, so a PR that is still pending when a new session starts was never reviewed (the
+previous session ended or failed mid-way) and has to be picked up again. Create the state file
+once at the start of the session and pass it to every call, so a failed review can be forgotten
+later:
 
 ```bash
-scripts/pending-reviews.sh --interval 60 OWNER/REPO [OWNER/REPO ...]   # watch mode, runs until stopped
-scripts/pending-reviews.sh OWNER/REPO [OWNER/REPO ...]                 # one check, then exit
+STATE="$(mktemp "${TMPDIR:-/tmp}/pr-review-watch-seen.XXXXXX")"
+scripts/pending-reviews.sh --state "$STATE" --interval 60 OWNER/REPO [OWNER/REPO ...]   # watch mode, runs until stopped
+scripts/pending-reviews.sh --state "$STATE" OWNER/REPO [OWNER/REPO ...]                 # one check, then exit
 ```
+
+Never reuse a state file from an earlier session. Without `--state`, watch mode uses its own
+temporary file and a one-shot check remembers nothing, so it reports every pending PR each time.
 
 Use the best recurring mechanism the agent has, in this order:
 
@@ -166,7 +177,7 @@ scripts/worktree.sh remove WORKTREE_PATH
 in a loop. Tell the user, and make the PR eligible again only if they want it retried:
 
 ```bash
-scripts/pending-reviews.sh --forget 'OWNER/REPO#NUMBER@HEAD_SHA'
+scripts/pending-reviews.sh --state "$STATE" --forget 'OWNER/REPO#NUMBER@HEAD_SHA'
 ```
 
 ## Step 5 — Record it
@@ -183,5 +194,6 @@ Then post a one-line note in the main conversation, for example:
 ## Stopping
 
 Stop when the user asks. Stop the background watch or the scheduled job, remove any worktree
-still under the temp `pr-review-watch` directory with `scripts/worktree.sh remove`, and give a
+still under the temp `pr-review-watch` directory with `scripts/worktree.sh remove`, delete the
+session's state file (`rm -f "$STATE"`), and give a
 short tally of the PRs reviewed in this session with their verdicts.
