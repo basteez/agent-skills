@@ -69,8 +69,20 @@ fi
 check_once() {
   local query=("is:pr" "is:open" "$qualifier:@me" "archived:false")
   [ "$drafts" = "true" ] || query+=("draft:false")
-  local r
-  for r in "${repos[@]}"; do query+=("repo:$r"); done
+  # gh sends the query as GitHub advanced search, where qualifiers separated by
+  # a space are ANDed: "repo:a/x repo:b/y" matches nothing as soon as two repos
+  # are watched. Group them as "(repo:a/x OR repo:b/y)". Each word is its own
+  # argument because gh quotes any argument containing a space, which GitHub
+  # then rejects as invalid syntax.
+  local r last=$((${#repos[@]} - 1)) i=0 term
+  for r in "${repos[@]}"; do
+    term="repo:$r"
+    [ "$i" -eq 0 ] && term="($term"
+    [ "$i" -eq "$last" ] && term="$term)"
+    [ "$i" -eq 0 ] || query+=("OR")
+    query+=("$term")
+    i=$((i + 1))
+  done
 
   local found
   if ! found="$(gh search prs "${query[@]}" --limit 100 \
